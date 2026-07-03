@@ -1,4 +1,4 @@
-import type { PrismaClient } from "@prisma/client";
+import { PrismaClient } from "@prisma/client";
 
 const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient;
@@ -37,13 +37,10 @@ function isValidTursoToken(value: string): boolean {
 
 /**
  * Creates the PrismaClient — either Turso-backed (production) or local SQLite.
- * Called lazily on first access, never at module evaluation time, so the
- * database driver (including @libsql/client) is never loaded during build.
+ * Only called lazily on first property access of the exported proxy, never at
+ * module evaluation time, so the query engine is never initialized during build.
  */
 function createClient(): PrismaClient {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const { PrismaClient: PC } = require("@prisma/client");
-
   const tursoUrl = process.env.TURSO_DATABASE_URL ?? "";
   const tursoToken = process.env.TURSO_AUTH_TOKEN ?? "";
 
@@ -59,7 +56,7 @@ function createClient(): PrismaClient {
         authToken: tursoToken,
       });
 
-      return new PC({ adapter: new PrismaLibSQL(libsql) });
+      return new PrismaClient({ adapter: new PrismaLibSQL(libsql) });
     } catch (error) {
       console.warn(
         "Turso client creation failed — falling back to local SQLite.",
@@ -75,7 +72,7 @@ function createClient(): PrismaClient {
   if (!process.env.DATABASE_URL) {
     process.env.DATABASE_URL = "file:./accessready-dev.db";
   }
-  return new PC();
+  return new PrismaClient();
 }
 
 function getClient(): PrismaClient {
@@ -90,7 +87,7 @@ function getClient(): PrismaClient {
  *
  * The real client is NOT created when this module is imported — only when
  * a property is first accessed (e.g. `prisma.scan.findMany()`).  This
- * guarantees that neither @prisma/client nor @libsql/client are loaded
+ * guarantees that the query engine (and @libsql/client) are never loaded
  * during `next build`, avoiding LibsqlError crashes when DATABASE_URL
  * and TURSO_* env vars are not available at build time.
  */
