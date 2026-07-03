@@ -2,9 +2,33 @@ import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
+/**
+ * Return true when the value looks like a well-formed Turso database URL.
+ * Rejects placeholder strings and malformed URLs so we don't incorrectly
+ * skip local SQLite setup when env vars are set to invalid values.
+ */
+function isTursoConfigured(value) {
+  if (!value || value === "undefined" || value === "null") {
+    return false;
+  }
+  if (!value.startsWith("libsql://")) {
+    return false;
+  }
+  try {
+    const parsed = new URL(value);
+    return Boolean(
+      parsed.hostname &&
+      parsed.hostname !== "undefined" &&
+      parsed.hostname !== "null",
+    );
+  } catch {
+    return false;
+  }
+}
+
 function readDatabaseUrl() {
   // When Turso is configured for production, skip local SQLite setup.
-  if (process.env.TURSO_DATABASE_URL) {
+  if (isTursoConfigured(process.env.TURSO_DATABASE_URL)) {
     console.log("Turso database configured — skipping local SQLite setup.");
     return null;
   }
