@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import type { PrismaClient } from "@prisma/client";
 
 const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient;
@@ -35,9 +35,15 @@ function isValidTursoToken(value: string): boolean {
   return Boolean(value) && value !== "undefined" && value !== "null";
 }
 
+/**
+ * Creates the PrismaClient — either Turso-backed (production) or local SQLite.
+ * Called lazily on first access, never at module evaluation time, so the
+ * database driver (including @libsql/client) is never loaded during build.
+ */
 function createClient(): PrismaClient {
-  // Turso/libsql remote database (production / Vercel).
-  // Guard against unset or placeholder env vars — both must be real strings.
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { PrismaClient: PC } = require("@prisma/client");
+
   const tursoUrl = process.env.TURSO_DATABASE_URL ?? "";
   const tursoToken = process.env.TURSO_AUTH_TOKEN ?? "";
 
@@ -53,7 +59,7 @@ function createClient(): PrismaClient {
         authToken: tursoToken,
       });
 
-      return new PrismaClient({ adapter: new PrismaLibSQL(libsql) });
+      return new PC({ adapter: new PrismaLibSQL(libsql) });
     } catch (error) {
       console.warn(
         "Turso client creation failed — falling back to local SQLite.",
@@ -62,19 +68,39 @@ function createClient(): PrismaClient {
     }
   }
 
-  // Local SQLite file (development).
+  // Local SQLite file (development / build-time fallback).
   // Prisma 6 uses @libsql/client as its default SQLite driver internally.
-  // Set DATABASE_URL in process.env directly (not just via datasourceUrl)
-  // because the generated Prisma client reads from the environment and will
-  // throw LibsqlError if it encounters undefined.
+  // Set DATABASE_URL in process.env directly because the generated Prisma
+  // client reads from the environment and throws LibsqlError on undefined.
   if (!process.env.DATABASE_URL) {
     process.env.DATABASE_URL = "file:./accessready-dev.db";
   }
-  return new PrismaClient();
+  return new PC();
 }
 
-export const prisma = globalForPrisma.prisma ?? createClient();
-
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma;
+function getClient(): PrismaClient {
+  if (!globalForPrisma.prisma) {
+    globalForPrisma.prisma = createClient();
+  }
+  return globalForPrisma.prisma;
 }
+
+/**
+ * Lazy PrismaClient proxy.
+ *
+ * The real client is NOT created when this module is imported — only when
+ * a property is first accessed (e.g. `prisma.scan.findMany()`).  This
+ * guarantees that neither @prisma/client nor @libsql/client are loaded
+ * during `next build`, avoiding LibsqlError crashes when DATABASE_URL
+ * and TURSO_* env vars are not available at build time.
+ */
+export const prisma = new Proxy({} as PrismaClient, {
+  get(_, prop: string | symbol) {
+    const client = getClient();
+    const value = (client as unknown as Record<string | symbol, unknown>)[prop];
+    if (typeof value === "function") {
+      return value.bind(client);
+    }
+    return value;
+  },
+}) as PrismaClient;
