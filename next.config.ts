@@ -1,10 +1,14 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Prevent Vercel from bundling Playwright into serverless functions.
-  // The browser is launched remotely via Browserless.io in production,
-  // or locally via `playwright install chromium` in development.
-  serverExternalPackages: ["playwright"],
+  // Prevent Vercel/Turbopack from bundling these packages into serverless
+  // functions — they're loaded via require() at runtime and rely on native
+  // Node.js behavior for env var resolution and network I/O.
+  serverExternalPackages: [
+    "playwright",
+    "@libsql/client",
+    "@prisma/adapter-libsql",
+  ],
 
   // Allow large screenshot and image upload payloads through server actions.
   experimental: {
