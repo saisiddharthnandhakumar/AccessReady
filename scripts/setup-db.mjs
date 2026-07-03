@@ -3,6 +3,12 @@ import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
 function readDatabaseUrl() {
+  // When Turso is configured for production, skip local SQLite setup.
+  if (process.env.TURSO_DATABASE_URL) {
+    console.log("Turso database configured — skipping local SQLite setup.");
+    return null;
+  }
+
   const envPath = path.join(process.cwd(), ".env");
   if (existsSync(envPath)) {
     const env = readFileSync(envPath, "utf8");
@@ -30,7 +36,12 @@ function sqlitePathFromUrl(databaseUrl) {
   return path.resolve(process.cwd(), rawPath);
 }
 
-const databasePath = sqlitePathFromUrl(readDatabaseUrl());
+const databaseUrl = readDatabaseUrl();
+if (databaseUrl === null) {
+  process.exit(0); // Turso mode — nothing to set up locally.
+}
+
+const databasePath = sqlitePathFromUrl(databaseUrl);
 mkdirSync(path.dirname(databasePath), { recursive: true });
 
 const db = new DatabaseSync(databasePath);

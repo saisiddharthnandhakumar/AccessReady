@@ -10,9 +10,11 @@
     "test": "prisma generate && node --no-warnings scripts/setup-db.mjs && vitest run",
     "db:generate": "prisma generate",
     "db:setup": "node --no-warnings scripts/setup-db.mjs",
-    "postinstall": "prisma generate && node --no-warnings scripts/setup-db.mjs && playwright install chromium"
+    "postinstall": "prisma generate && node --no-warnings scripts/setup-db.mjs"
   },
   "dependencies": {
+    "@libsql/client": "^0.15.0",
+    "@prisma/adapter-libsql": "^6.19.3",
     "@prisma/client": "^6.19.3",
     "@radix-ui/react-slot": "^1.2.4",
     "axe-core": "^4.12.0",

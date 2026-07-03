@@ -618,7 +618,17 @@ export async function runContrastScan(
     scanId = scan.id;
   }
 
-  const browser = await chromium.launch({ headless: true });
+  // Connect to remote browser (Browserless.io or custom CDP endpoint) in
+  // production / serverless, or launch a local Chromium in development.
+  const remoteEndpoint =
+    process.env.BROWSERLESS_WS_ENDPOINT ??
+    (process.env.BROWSERLESS_API_KEY
+      ? `wss://chrome.browserless.io?token=${process.env.BROWSERLESS_API_KEY}`
+      : null);
+
+  const browser = remoteEndpoint
+    ? await chromium.connect({ wsEndpoint: remoteEndpoint })
+    : await chromium.launch({ headless: true });
   const context = await browser.newContext({
     viewport: { width: 1366, height: 900 },
     userAgent:
