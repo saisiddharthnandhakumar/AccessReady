@@ -63,11 +63,14 @@ function createClient(): PrismaClient {
   }
 
   // Local SQLite file (development).
-  // Prisma 6 uses @libsql/client as its default SQLite driver, so even
-  // without the Turso adapter we must guarantee a non-undefined URL.
-  return new PrismaClient({
-    datasourceUrl: process.env.DATABASE_URL ?? "file:./accessready-dev.db",
-  });
+  // Prisma 6 uses @libsql/client as its default SQLite driver internally.
+  // Set DATABASE_URL in process.env directly (not just via datasourceUrl)
+  // because the generated Prisma client reads from the environment and will
+  // throw LibsqlError if it encounters undefined.
+  if (!process.env.DATABASE_URL) {
+    process.env.DATABASE_URL = "file:./accessready-dev.db";
+  }
+  return new PrismaClient();
 }
 
 export const prisma = globalForPrisma.prisma ?? createClient();
