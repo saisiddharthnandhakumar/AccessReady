@@ -620,10 +620,12 @@ export async function runContrastScan(
 
   // Connect to remote browser (Browserless.io or custom CDP endpoint) in
   // production / serverless, or launch a local Chromium in development.
+  const wsEndpoint = process.env.BROWSERLESS_WS_ENDPOINT;
+  const apiKey = process.env.BROWSERLESS_API_KEY;
   const remoteEndpoint =
-    process.env.BROWSERLESS_WS_ENDPOINT ??
-    (process.env.BROWSERLESS_API_KEY
-      ? `wss://chrome.browserless.io?token=${process.env.BROWSERLESS_API_KEY}`
+    (wsEndpoint && wsEndpoint.startsWith("wss://") ? wsEndpoint : null) ??
+    (apiKey && apiKey !== "undefined"
+      ? `wss://chrome.browserless.io?token=${apiKey}`
       : null);
 
   const browser = remoteEndpoint

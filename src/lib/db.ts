@@ -5,16 +5,25 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 function createClient(): PrismaClient {
-  // Turso/libsql remote database (production / Vercel)
-  if (process.env.TURSO_DATABASE_URL) {
+  // Turso/libsql remote database (production / Vercel).
+  // Guard against unset or placeholder env vars — both must be real strings.
+  const tursoUrl = process.env.TURSO_DATABASE_URL;
+  const tursoToken = process.env.TURSO_AUTH_TOKEN;
+
+  if (
+    tursoUrl &&
+    tursoUrl.startsWith("libsql://") &&
+    tursoToken &&
+    tursoToken !== "undefined"
+  ) {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const { PrismaLibSQL } = require("@prisma/adapter-libsql");
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const { createClient: createLibSQL } = require("@libsql/client");
 
     const libsql = createLibSQL({
-      url: process.env.TURSO_DATABASE_URL,
-      authToken: process.env.TURSO_AUTH_TOKEN,
+      url: tursoUrl,
+      authToken: tursoToken,
     });
 
     return new PrismaClient({ adapter: new PrismaLibSQL(libsql) });
