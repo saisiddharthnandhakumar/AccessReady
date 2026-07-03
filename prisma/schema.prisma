@@ -1,0 +1,89 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Scan {
+  id             String       @id @default(cuid())
+  url            String
+  normalizedUrl  String
+  source         String       @default("url")
+  productType            String?
+  productTypeOther       String?
+  targetMarket           String?
+  targetMarketOther      String?
+  industry               String?
+  industryOther          String?
+  applicableRegulations  String?
+  notes                  String?
+  status         String       @default("running")
+  pageCount      Int          @default(0)
+  violationCount Int          @default(0)
+  error          String?
+  createdAt      DateTime     @default(now())
+  finishedAt     DateTime?
+  pages          PageResult[]
+
+  @@index([createdAt])
+}
+
+model PageResult {
+  id             String      @id @default(cuid())
+  scanId         String
+  scan           Scan        @relation(fields: [scanId], references: [id], onDelete: Cascade)
+  url            String
+  title          String?
+  depth          Int
+  statusCode     Int?
+  screenshotPath String?
+  violationCount Int         @default(0)
+  createdAt      DateTime    @default(now())
+  violations     Violation[]
+  imageAnalyses  ImageAnalysis[]
+
+  @@index([scanId])
+}
+
+model Violation {
+  id             String     @id @default(cuid())
+  pageId         String
+  page           PageResult @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  axeId          String
+  impact         String?
+  description    String
+  help           String
+  helpUrl        String
+  tagsJson       String
+  targetJson     String
+  boundingBoxJson String?
+  colorDataJson   String?
+  section         String?
+  heroAnalysisJson String?
+  html            String
+  failureSummary String?
+  createdAt      DateTime   @default(now())
+
+  @@index([pageId])
+}
+
+model ImageAnalysis {
+  id          String     @id @default(cuid())
+  pageId      String
+  page        PageResult @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  imageUrl    String
+  imageType   String     @default("img")
+  altText     String?
+  mimeType    String?
+  storedPath  String?
+  status      String     @default("completed")
+  error       String?
+  resultJson  String?
+  rawResponse String?
+  createdAt   DateTime   @default(now())
+
+  @@index([pageId])
+}

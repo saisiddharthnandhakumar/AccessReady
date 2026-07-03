@@ -1,0 +1,177 @@
+@import "tailwindcss";
+
+/* ══════════════════════════════════════════════
+   AccessReady Design Tokens
+   Dark syntax theme (IDE-inspired)
+   Fonts: Fira Code (headings/mono) + Fira Sans (body)
+   ══════════════════════════════════════════════ */
+
+/* ── Light Mode (default) ── */
+:root {
+  /* Surface */
+  --app-surface: #f8fafc;
+  --app-surface-raised: #ffffff;
+  --app-surface-hover: #f1f5f9;
+  --app-surface-inverse: #0b1121;
+
+  /* Foreground (text) */
+  --app-foreground: #0f172a;
+  --app-foreground-secondary: #475569;
+  --app-foreground-muted: #94a3b8;
+  --app-foreground-inverse: #f1f5f9;
+
+  /* Brand */
+  --app-brand: #2563eb;
+  --app-brand-hover: #1d4ed8;
+  --app-brand-muted: #dbeafe;
+  --app-brand-ring: rgb(37 99 235 / 0.35);
+
+  /* Accent */
+  --app-accent: #7c3aed;
+  --app-accent-muted: #ede9fe;
+
+  /* Semantic */
+  --app-success: #059669;
+  --app-success-muted: #d1fae5;
+  --app-warning: #d97706;
+  --app-warning-muted: #fef3c7;
+  --app-danger: #dc2626;
+  --app-danger-muted: #fee2e2;
+  --app-info: #4f46e5;
+  --app-info-muted: #e0e7ff;
+
+  /* Border */
+  --app-border: #cbd5e1;
+  --app-border-light: #e2e8f0;
+
+  /* Shadow */
+  --app-shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.06);
+  --app-shadow-md: 0 4px 16px -2px rgb(0 0 0 / 0.08);
+}
+
+/* ── Dark Mode ── */
+.dark {
+  --app-surface: #0b1121;
+  --app-surface-raised: #131c33;
+  --app-surface-hover: #1a2744;
+  --app-surface-inverse: #f1f5f9;
+
+  --app-foreground: #f1f5f9;
+  --app-foreground-secondary: #94a3b8;
+  --app-foreground-muted: #64748b;
+  --app-foreground-inverse: #0b1121;
+
+  --app-brand: #3b82f6;
+  --app-brand-hover: #60a5fa;
+  --app-brand-muted: #1e3a5f;
+  --app-brand-ring: rgb(59 130 246 / 0.4);
+
+  --app-accent: #a78bfa;
+  --app-accent-muted: #2e1065;
+
+  --app-success: #34d399;
+  --app-success-muted: #064e3b;
+  --app-warning: #fbbf24;
+  --app-warning-muted: #78350f;
+  --app-danger: #f87171;
+  --app-danger-muted: #7f1d1d;
+  --app-info: #818cf8;
+  --app-info-muted: #1e1b4b;
+
+  --app-border: #334155;
+  --app-border-light: #1e293b;
+
+  --app-shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.3);
+  --app-shadow-md: 0 4px 16px -2px rgb(0 0 0 / 0.4);
+}
+
+/* ── Tailwind v4 Theme Registration ── */
+/* Maps app-* vars → Tailwind utility namespaces */
+@theme inline {
+  --color-surface: var(--app-surface);
+  --color-surface-raised: var(--app-surface-raised);
+  --color-surface-hover: var(--app-surface-hover);
+  --color-surface-inverse: var(--app-surface-inverse);
+
+  --color-foreground: var(--app-foreground);
+  --color-foreground-secondary: var(--app-foreground-secondary);
+  --color-foreground-muted: var(--app-foreground-muted);
+  --color-foreground-inverse: var(--app-foreground-inverse);
+
+  --color-primary: var(--app-brand);
+  --color-primary-hover: var(--app-brand-hover);
+  --color-primary-muted: var(--app-brand-muted);
+  --color-accent: var(--app-accent);
+  --color-accent-muted: var(--app-accent-muted);
+
+  --color-success: var(--app-success);
+  --color-success-muted: var(--app-success-muted);
+  --color-warning: var(--app-warning);
+  --color-warning-muted: var(--app-warning-muted);
+  --color-danger: var(--app-danger);
+  --color-danger-muted: var(--app-danger-muted);
+  --color-info: var(--app-info);
+  --color-info-muted: var(--app-info-muted);
+
+  --color-border: var(--app-border);
+  --color-border-light: var(--app-border-light);
+
+  --font-heading: var(--font-fira-code);
+  --font-sans: var(--font-fira-sans);
+  --font-mono: var(--font-fira-code);
+}
+
+/* ── Base Styles ── */
+body {
+  background: var(--app-surface);
+  color: var(--app-foreground);
+  font-family: var(--font-fira-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+/* ── Focus Ring (WCAG 2.4.11) ── */
+*:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--app-brand-ring);
+  border-radius: 4px;
+}
+
+/* ── Animations ── */
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+@keyframes pulse-dot {
+  0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
+  40%           { opacity: 1;   transform: scale(1); }
+}
+.animate-enter {
+  animation: fade-in-up 0.4s ease-out both;
+}
+.animate-shimmer {
+  background: linear-gradient(90deg, var(--app-surface-hover) 25%, var(--app-surface-raised) 50%, var(--app-surface-hover) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+}
+
+/* ── Respect Reduced Motion ── */
+@media (prefers-reduced-motion: reduce) {
+  .animate-enter, .animate-shimmer { animation: none; opacity: 1; transform: none; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: var(--app-surface-hover); }
+::-webkit-scrollbar-thumb { background: var(--app-border); border-radius: 12px; }
+::-webkit-scrollbar-thumb:hover { background: var(--app-foreground-muted); }
+
+/* ── Selection ── */
+::selection { background: var(--app-brand-muted); color: var(--app-foreground); }

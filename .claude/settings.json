@@ -1,0 +1,47 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(netstat -ano)",
+      "Bash(tasklist)",
+      "mcp__plugin_playwright_playwright__browser_take_screenshot",
+      "mcp__plugin_playwright_playwright__browser_evaluate",
+      "Bash(taskkill //F //IM node.exe)",
+      "Bash(npx next *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000)",
+      "mcp__plugin_playwright_playwright__browser_navigate",
+      "Bash(npx prisma *)",
+      "Bash(node --no-warnings scripts/setup-db.mjs)",
+      "Bash(DATABASE_URL=\"file:./accessready-test.db\" node --no-warnings scripts/setup-db.mjs)",
+      "Bash(node --no-warnings -e ' *)",
+      "Bash(python3 .claude/skills/ui-ux-pro-max/scripts/search.py \"accessibility dashboard developer tool\" --design-system -p \"AccessReady\" -f markdown)",
+      "Bash(dir /s /b \"c:\\Users\\Nandhakumar V\\OneDrive\\Desktop\\AccessReady\\*.*\")",
+      "Bash(ngrok http *)",
+      "mcp__plugin_playwright_playwright__browser_click",
+      "Bash(ls -la /c/Users/NandhakumarV/OneDrive/Desktop/AccessReady)",
+      "Read(//c/Users/NandhakumarV/OneDrive/Desktop/**)",
+      "Bash(dir /b /s \"c:\\Users\\Nandhakumar V\\OneDrive\\Desktop\\AccessReady\")",
+      "Bash(npm test *)",
+      "Bash(taskkill /PID 40692 /F)",
+      "Bash(cmd.exe //c \"taskkill //PID 40692 //F\")",
+      "Bash(powershell -Command \"Stop-Process -Id 40692 -Force\")",
+      "Bash(powershell -Command \"Stop-Process -Id 39236 -Force; Stop-Process -Id 39696 -Force\")",
+      "Bash(where ngrok *)",
+      "Bash(ls -la \"C:/tmp/accessready-dev.db\" 2>/dev/null || echo \"Database file does not exist\")",
+      "Read(//c/tmp/**)",
+      "WebFetch(domain:github.com)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -f graphify-out/graph.json ]; then echo 'HEADS-UP: Knowledge graph available. Consider using graphify query \"<your question>\" instead of file search to save tokens.'; fi"
+          }
+        ]
+      }
+    ]
+  }
+}
