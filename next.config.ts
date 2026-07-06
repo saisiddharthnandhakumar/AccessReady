@@ -5,7 +5,6 @@ const nextConfig: NextConfig = {
   // functions — they're loaded via require() at runtime and rely on native
   // Node.js behavior for env var resolution and network I/O.
   serverExternalPackages: [
-    "playwright",
     "@libsql/client",
     "@prisma/adapter-libsql",
   ],
