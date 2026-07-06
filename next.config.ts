@@ -9,6 +9,14 @@ const nextConfig: NextConfig = {
     "@prisma/adapter-libsql",
   ],
 
+  // playwright-core loads browsers.json via fs.readFileSync, not require(),
+  // so Vercel's Node File Trace doesn't detect the dependency and prunes it.
+  // Tell the tracer to include it explicitly.
+  outputFileTracingIncludes: {
+    "/api/scans": ["./node_modules/playwright-core/browsers.json"],
+    "/api/scans/*/preview": ["./node_modules/playwright-core/browsers.json"],
+  },
+
   // Allow large screenshot and image upload payloads through server actions.
   experimental: {
     serverActions: {

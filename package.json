@@ -10,7 +10,7 @@
     "test": "prisma generate && node --no-warnings scripts/setup-db.mjs && vitest run",
     "db:generate": "prisma generate",
     "db:setup": "node --no-warnings scripts/setup-db.mjs",
-    "postinstall": "prisma generate && node --no-warnings scripts/setup-db.mjs"
+    "postinstall": "prisma generate && node --no-warnings scripts/setup-db.mjs && node --no-warnings scripts/patch-playwright.mjs"
   },
   "dependencies": {
     "@libsql/client": "^0.15.0",
