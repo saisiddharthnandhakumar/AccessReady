@@ -6,13 +6,12 @@ import Link from "next/link";
 import { AlertTriangle } from "lucide-react";
 
 /**
- * When the scan is still "running", polls GET /api/scans/[id] every 2 seconds
- * for a lightweight status check. When the status changes from "running",
- * triggers a full router.refresh() so the server component re-fetches all
- * the page/violation data.
+ * When the scan is "running", triggers POST /api/scans/[id]/process
+ * (which gets its own 300s Vercel invocation), then polls
+ * GET /api/scans/[id] every 2 seconds until the scan completes or fails.
  *
  * If the scan stays "running" for more than 3 minutes, shows a warning
- * suggesting the scan may be stuck (e.g. Vercel function timed out).
+ * suggesting the scan may be stuck.
  */
 export function ScanStatusPoller({
   scanId,
@@ -24,7 +23,19 @@ export function ScanStatusPoller({
   const router = useRouter();
   const [status, setStatus] = useState(initialStatus);
   const [isStuck, setIsStuck] = useState(false);
+  const startedRef = useRef(false);
   const startTime = useRef(Date.now());
+
+  // Trigger the process endpoint once when the component mounts
+  // and the scan is still running.
+  useEffect(() => {
+    if (status !== "running" || startedRef.current) return;
+    startedRef.current = true;
+
+    fetch(`/api/scans/${scanId}/process`, { method: "POST" }).catch(() => {
+      // Process endpoint may fail; polling will pick up the result
+    });
+  }, [scanId, status]);
 
   const poll = useCallback(async () => {
     try {
@@ -35,7 +46,6 @@ export function ScanStatusPoller({
         setStatus(data.status);
         router.refresh();
       }
-      // Mark as stuck after 3 minutes of polling
       if (Date.now() - startTime.current > 180_000) {
         setIsStuck(true);
       }
@@ -47,7 +57,7 @@ export function ScanStatusPoller({
   useEffect(() => {
     if (status !== "running") return;
 
-    // Poll immediately on mount
+    // Poll immediately on mount (in case process already finished)
     poll();
 
     const interval = setInterval(poll, 2000);

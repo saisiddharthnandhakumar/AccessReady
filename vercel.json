@@ -1,6 +1,10 @@
 {
   "functions": {
     "src/app/api/scans/route.ts": {
+      "maxDuration": 15,
+      "memory": 256
+    },
+    "src/app/api/scans/[id]/process/route.ts": {
       "maxDuration": 300,
       "memory": 1024
     },

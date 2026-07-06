@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { after } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { normalizeUrl } from "@/lib/url";
@@ -7,11 +6,9 @@ import { getApplicableRegulations } from "@/lib/compliance";
 import type { ScanMetadataInput } from "@/lib/scan-metadata";
 
 export const runtime = "nodejs";
-// Response is sent immediately via after(), but the scan continues in the
-// background within the same invocation.  MaxDuration applies to the whole
-// invocation, so we keep 120s for the scan work.  The client gets its JSON
-// response in <200ms regardless.
-export const maxDuration = 120;
+// Just a DB write + validation — the scan itself runs in
+// POST /api/scans/[id]/process which gets its own invocation.
+export const maxDuration = 15;
 
 const scanRequestSchema = z.object({
   url: z
@@ -76,6 +73,9 @@ export async function POST(request: Request) {
       ? getApplicableRegulations(metadata.targetMarket, metadata.industry)
       : [];
 
+  // Create the scan record and return immediately.
+  // The actual scan is triggered by POST /api/scans/[id]/process
+  // which gets its own function invocation with a fresh timeout clock.
   const scan = await prisma.scan.create({
     data: {
       url: parsed.data.url.trim(),
@@ -91,22 +91,6 @@ export async function POST(request: Request) {
         regulations.length > 0 ? JSON.stringify(regulations) : null,
       notes: metadata.notes ?? null,
     },
-  });
-
-  // Run the scan in the background via after() so the client gets an
-  // immediate response. after() uses waitUntil on Vercel to keep the
-  // function alive for background work within the same invocation.
-  // The scan function handles its own DB updates (completed / failed).
-  after(async () => {
-    try {
-      const { runContrastScan } = await import("@/lib/scan");
-      await runContrastScan(parsed.data.url, {}, metadata, scan.id);
-    } catch (err) {
-      console.error(
-        "Background scan failed:",
-        err instanceof Error ? err.message : err,
-      );
-    }
   });
 
   return NextResponse.json({ id: scan.id });

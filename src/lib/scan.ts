@@ -141,10 +141,12 @@ async function screenshotDirectory() {
 }
 
 async function extractLinks(page: Page) {
-  return page.evaluate(() =>
-    Array.from(document.querySelectorAll<HTMLAnchorElement>("a[href]"))
-      .map((anchor) => anchor.href)
-      .filter(Boolean),
+  return page.evaluate(
+    () =>
+      Array.from(document.querySelectorAll<HTMLAnchorElement>("a[href]"))
+        .map((anchor) => anchor.href)
+        .filter(Boolean),
+    { timeout: 10000 },
   );
 }
 
@@ -167,7 +169,7 @@ async function runAxe(page: Page): Promise<AxeRunResult> {
       },
       resultTypes: ["violations"],
     });
-  });
+  }, { timeout: 30000 });
 }
 
 async function pageTitle(page: Page) {
@@ -708,6 +710,7 @@ export async function runContrastScan(
       }
 
       const page = await context.newPage();
+      page.setDefaultTimeout(15000); // safety net for any operation without an explicit timeout
 
       try {
         let response = await page.goto(item.url, {
