@@ -281,7 +281,7 @@ type PageImageDescriptor = {
 };
 
 /** Maximum number of images to analyze per page via the vision model. */
-const MAX_IMAGES_PER_PAGE = 10;
+const MAX_IMAGES_PER_PAGE = 3;
 
 /** Image URLs matching these patterns are skipped (tracking, icons, etc.). */
 const SKIP_IMAGE_PATTERNS = [
@@ -476,30 +476,24 @@ async function captureImageBase64(
 }
 
 /**
- * Discovers images on a page, captures them, sends each to the
- * MiniMax-M3 vision model, post-processes the results, and persists
- * them as ImageAnalysis records linked to the page result.
+ * Phase 1: Captures images from a page while it's still open, saves them
+ * to disk, and creates ImageAnalysis records with status "pending".
+ * Returns the IDs of records that need deferred AI analysis.
  *
- * Non-blocking: failures on individual images are logged and skipped.
- * The scan continues regardless of vision analysis outcome.
+ * This runs fast (< 10s) and does NOT call the NVIDIA API.
  */
-async function analyzePageImages(
+async function capturePageImages(
   page: Page,
   pageResultId: string,
-): Promise<void> {
-  // 1. Extract image descriptors from the DOM
+): Promise<string[]> {
   const descriptors = await extractPageImages(page);
-
-  if (descriptors.length === 0) return;
+  if (descriptors.length === 0) return [];
 
   const filtered = descriptors.filter((d) => !shouldSkipImage(d.imageUrl));
+  const analysisIds: string[] = [];
 
-  // 2. Analyze each image sequentially (avoid rate limiting)
   for (const descriptor of filtered) {
-    let lastMimeType: string | null = null;
-    let lastStoredPath: string | null = null;
     try {
-      // Capture the image as base64
       const captured = await captureImageBase64(page, descriptor.imageUrl, descriptor.imageType);
       if (!captured) {
         await prisma.imageAnalysis.create({
@@ -515,28 +509,9 @@ async function analyzePageImages(
         continue;
       }
 
-      lastMimeType = captured.mimeType;
-
-      // Save the captured image to disk so it can be displayed in the UI
       const storedPath = await saveCapturedImage(captured.base64, captured.mimeType);
-      lastStoredPath = storedPath;
 
-      // Send to vision model
-      const { result: rawResult, rawResponse } = await analyzeImageWithVision(
-        captured.base64,
-        captured.mimeType,
-      );
-
-      // Post-process with exact WCAG math
-      const corrected = postProcessVisionResult(rawResult);
-
-      // Determine status
-      let status = "completed";
-      if (!corrected.hasText) {
-        status = "skipped";
-      }
-
-      await prisma.imageAnalysis.create({
+      const record = await prisma.imageAnalysis.create({
         data: {
           pageId: pageResultId,
           imageUrl: descriptor.imageUrl.slice(0, 2000),
@@ -544,15 +519,13 @@ async function analyzePageImages(
           altText: descriptor.altText,
           mimeType: captured.mimeType,
           storedPath,
-          status,
-          resultJson: JSON.stringify(corrected),
-          rawResponse: rawResponse.slice(0, 10000),
+          status: "pending", // will be analyzed in Phase 2
         },
       });
+      analysisIds.push(record.id);
     } catch (err) {
-      // Individual image failure is non-critical — log and continue
       console.warn(
-        `Vision analysis failed for image "${descriptor.imageUrl.slice(0, 100)}":`,
+        `Image capture failed for "${descriptor.imageUrl.slice(0, 100)}":`,
         err instanceof Error ? err.message : err,
       );
       try {
@@ -562,16 +535,84 @@ async function analyzePageImages(
             imageUrl: descriptor.imageUrl.slice(0, 2000),
             imageType: descriptor.imageType,
             altText: descriptor.altText,
-            mimeType: lastMimeType,
-            storedPath: lastStoredPath,
             status: "failed",
-            error: err instanceof Error ? err.message : "Vision analysis failed.",
+            error: err instanceof Error ? err.message : "Image capture failed.",
           },
         });
       } catch {
         // DB write failed — nothing more we can do
       }
     }
+  }
+
+  return analysisIds;
+}
+
+/**
+ * Phase 2: Runs NVIDIA vision analysis on a previously captured image.
+ * Reads the image back from disk, sends it to the vision model,
+ * post-processes the result, and updates the ImageAnalysis record.
+ *
+ * Called AFTER the scan is marked "completed" so slow API calls
+ * don't block the core audit results from being saved.
+ */
+async function runDeferredImageAnalysis(analysisId: string): Promise<void> {
+  const record = await prisma.imageAnalysis.findUnique({
+    where: { id: analysisId },
+  });
+
+  if (!record || !record.storedPath || !record.mimeType) {
+    await prisma.imageAnalysis.update({
+      where: { id: analysisId },
+      data: { status: "failed", error: "Captured image not found for deferred analysis." },
+    }).catch(() => {});
+    return;
+  }
+
+  const fullPath = path.join(process.cwd(), "public", record.storedPath);
+
+  let base64: string;
+  try {
+    const buffer = await readFile(fullPath);
+    base64 = buffer.toString("base64");
+  } catch {
+    await prisma.imageAnalysis.update({
+      where: { id: analysisId },
+      data: { status: "failed", error: "Could not read captured image from disk." },
+    }).catch(() => {});
+    return;
+  }
+
+  try {
+    const { result: rawResult, rawResponse } = await analyzeImageWithVision(
+      base64,
+      record.mimeType,
+    );
+
+    const corrected = postProcessVisionResult(rawResult);
+
+    const status = corrected.hasText ? "completed" : "skipped";
+
+    await prisma.imageAnalysis.update({
+      where: { id: analysisId },
+      data: {
+        status,
+        resultJson: JSON.stringify(corrected),
+        rawResponse: rawResponse.slice(0, 10000),
+      },
+    });
+  } catch (err) {
+    console.warn(
+      `Vision analysis failed for image ${analysisId}:`,
+      err instanceof Error ? err.message : err,
+    );
+    await prisma.imageAnalysis.update({
+      where: { id: analysisId },
+      data: {
+        status: "failed",
+        error: err instanceof Error ? err.message : "Vision analysis failed.",
+      },
+    }).catch(() => {});
   }
 }
 
@@ -655,6 +696,7 @@ export async function runContrastScan(
   const seen = new Set([normalizedUrl]);
   let auditedPages = 0;
   let totalViolations = 0;
+  const allPendingImageIds: string[] = [];
 
   try {
     const screenshotRoot = await screenshotDirectory();
@@ -807,14 +849,16 @@ export async function runContrastScan(
           },
         });
 
-        // Analyze images on the page for text contrast issues (vision model)
+        // Phase 1: Capture images while page is still open (fast, < 10s).
+        // Deferred AI analysis happens in Phase 2 after scan is completed.
+        let pendingImageIds: string[] = [];
         if (process.env.NVIDIA_API_KEY) {
           try {
-            await analyzePageImages(page, pageResult.id);
+            pendingImageIds = await capturePageImages(page, pageResult.id);
+            allPendingImageIds.push(...pendingImageIds);
           } catch (err) {
-            // Image analysis is non-critical — log and continue
             console.warn(
-              `Image analysis failed for ${item.url}:`,
+              `Image capture failed for ${item.url}:`,
               err instanceof Error ? err.message : err,
             );
           }
@@ -829,7 +873,7 @@ export async function runContrastScan(
       }
     }
 
-    return prisma.scan.update({
+    const completedScan = await prisma.scan.update({
       where: { id: scanId },
       data: {
         status: "completed",
@@ -838,6 +882,26 @@ export async function runContrastScan(
         finishedAt: new Date(),
       },
     });
+
+    // Phase 2: Deferred image analysis — runs AFTER scan is marked complete.
+    // NVIDIA API calls are slow; they must not block the core audit results.
+    if (allPendingImageIds.length > 0) {
+      // Limit total image analysis to 60s to avoid Vercel timeout.
+      const analysisPromise = Promise.all(
+        allPendingImageIds.map((id) => runDeferredImageAnalysis(id)),
+      );
+      await Promise.race([
+        analysisPromise,
+        new Promise<void>((resolve) => setTimeout(resolve, 60000)),
+      ]).catch((err) => {
+        console.warn(
+          "Deferred image analysis incomplete:",
+          err instanceof Error ? err.message : err,
+        );
+      });
+    }
+
+    return completedScan;
   } catch (error) {
     await prisma.scan.update({
       where: { id: scanId },

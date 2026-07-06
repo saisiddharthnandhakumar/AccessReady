@@ -187,7 +187,7 @@ export async function analyzeImageWithVision(
   }
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 120000);
+  const timeout = setTimeout(() => controller.abort(), 30000); // 30s per image
 
   try {
     const response = await fetch(
@@ -243,7 +243,7 @@ export async function analyzeImageWithVision(
   } catch (err) {
     // If the fetch itself was aborted, rethrow so the caller can handle the timeout
     if (err instanceof DOMException && err.name === "AbortError") {
-      throw new Error("Vision analysis timed out after 60 seconds.");
+      throw new Error("Vision analysis timed out after 30 seconds.");
     }
     throw err;
   } finally {
