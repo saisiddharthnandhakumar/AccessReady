@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { normalizeUrl } from "@/lib/url";
@@ -34,8 +34,27 @@ export async function POST(request: Request) {
     );
   }
 
-  // Create the scan record immediately (non-blocking) so ngrok
-  // and other proxies don't time out waiting for axe-core + Playwright.
+  // Validate browser configuration early so we can fail fast.
+  const browserWs = process.env.BROWSERLESS_WS_ENDPOINT;
+  const browserKey = process.env.BROWSERLESS_API_KEY;
+  const remoteEndpoint =
+    (browserWs && browserWs.startsWith("wss://") ? browserWs : null) ??
+    (browserKey && browserKey !== "undefined"
+      ? `wss://chrome.browserless.io?token=${browserKey}`
+      : null);
+
+  if (!remoteEndpoint) {
+    return NextResponse.json(
+      {
+        error:
+          "No remote browser configured. Set BROWSERLESS_API_KEY or " +
+          "BROWSERLESS_WS_ENDPOINT in Vercel environment variables. " +
+          "Sign up at https://browserless.io (free tier available).",
+      },
+      { status: 500 },
+    );
+  }
+
   const normalizedUrl = normalizeUrl(parsed.data.url);
   const metadata: ScanMetadataInput = {
     productType: parsed.data.productType,
@@ -69,16 +88,42 @@ export async function POST(request: Request) {
     },
   });
 
-  // Fire-and-forget: the scan runs in the background and updates the
-  // record when it finishes (or fails).  The client polls /api/scans/:id
-  // to learn when the scan is done.
-  import("@/lib/scan").then(({ runContrastScan }) =>
-    runContrastScan(parsed.data.url, {}, metadata, scan.id).catch(() => {
-      // runContrastScan already updates the DB row on failure;
-      // we swallow here so the unhandled rejection doesn't crash the
-      // dev server.
-    }),
-  );
+  // Use after() to keep the serverless function alive after the response
+  // is sent. On Vercel this maps to waitUntil(), which prevents the runtime
+  // from freezing the function before the background scan completes.
+  // Without this, fire-and-forget promises are unreliable on serverless.
+  after(async () => {
+    try {
+      const { runContrastScan } = await import("@/lib/scan");
+      await runContrastScan(parsed.data.url, {}, metadata, scan.id);
+    } catch (err) {
+      console.error(
+        "Background scan failed:",
+        err instanceof Error ? err.message : err,
+      );
+      // Ensure the DB row is marked as failed even if runContrastScan's
+      // own error handler didn't reach the DB (e.g. the import itself threw).
+      try {
+        const { prisma: db } = await import("@/lib/db");
+        await db.scan.update({
+          where: { id: scan.id },
+          data: {
+            status: "failed",
+            error:
+              err instanceof Error
+                ? err.message
+                : "Unexpected scan failure.",
+            finishedAt: new Date(),
+          },
+        });
+      } catch (dbErr) {
+        console.error(
+          "Failed to update scan status after error:",
+          dbErr instanceof Error ? dbErr.message : dbErr,
+        );
+      }
+    }
+  });
 
   return NextResponse.json({ id: scan.id });
 }
