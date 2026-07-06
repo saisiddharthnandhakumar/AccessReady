@@ -1,6 +1,6 @@
 import "server-only";
 
-import { chromium, type Page } from "playwright";
+import { chromium, type Page } from "playwright-core";
 import { readFile } from "node:fs/promises";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";

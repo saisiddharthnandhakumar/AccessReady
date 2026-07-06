@@ -1,7 +1,7 @@
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
 import { NextResponse } from "next/server";
-import { chromium } from "playwright";
+import { chromium } from "playwright-core";
 import { z } from "zod";
 import { normalizeHexColor } from "@/lib/contrast";
 import { prisma } from "@/lib/db";
@@ -98,7 +98,18 @@ export async function POST(
     );
   }
 
-  const browser = await chromium.launch({ headless: true });
+  // Connect to remote browser (Browserless) in production, local in dev.
+  const wsEndpoint = process.env.BROWSERLESS_WS_ENDPOINT;
+  const apiKey = process.env.BROWSERLESS_API_KEY;
+  const remoteEndpoint =
+    (wsEndpoint && wsEndpoint.startsWith("wss://") ? wsEndpoint : null) ??
+    (apiKey && apiKey !== "undefined"
+      ? `wss://chrome.browserless.io?token=${apiKey}`
+      : null);
+
+  const browser = remoteEndpoint
+    ? await chromium.connect({ wsEndpoint: remoteEndpoint })
+    : await chromium.launch({ headless: true });
   const page = await browser.newPage({
     viewport: { width: 1366, height: 900 },
     userAgent:
