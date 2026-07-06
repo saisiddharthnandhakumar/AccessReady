@@ -450,7 +450,7 @@ async function captureImageBase64(
       const imgElement = page.locator(`img[src="${imageUrl}"]`).first();
       const count = await imgElement.count();
       if (count > 0) {
-        const screenshot = await imgElement.screenshot({ type: "png", timeout: 10000 });
+        const screenshot = await imgElement.screenshot({ type: "png", timeout: 5000 });
         return {
           base64: Buffer.from(screenshot).toString("base64"),
           mimeType: "image/png",
@@ -462,7 +462,7 @@ async function captureImageBase64(
     const bgElement = page.locator(`[style*="background"]`).first();
     const count = await bgElement.count();
     if (count > 0) {
-      const screenshot = await bgElement.screenshot({ type: "png", timeout: 10000 });
+      const screenshot = await bgElement.screenshot({ type: "png", timeout: 5000 });
       return {
         base64: Buffer.from(screenshot).toString("base64"),
         mimeType: "image/png",
@@ -682,7 +682,7 @@ export async function runContrastScan(
 
   const browser = await chromium.connect({
     wsEndpoint: remoteEndpoint,
-    timeout: 30000, // 30s to establish the WebSocket connection
+    timeout: 15000, // 15s to establish the WebSocket connection
   });
   const context = await browser.newContext({
     viewport: { width: 1366, height: 900 },
@@ -712,15 +712,15 @@ export async function runContrastScan(
       try {
         let response = await page.goto(item.url, {
           waitUntil: "domcontentloaded",
-          timeout: 25000,
+          timeout: 15000,
         }).catch(async (err) => {
           // Some sites (IRCTC, government portals) reject headless browsers
-          // with HTTP/2 protocol errors. Retry once with a longer timeout
+          // with HTTP/2 protocol errors. Retry once with a shorter timeout
           // and "load" waitUntil as a fallback.
           if (err instanceof Error && err.message.includes("ERR_HTTP2_PROTOCOL_ERROR")) {
             return page.goto(item.url, {
               waitUntil: "load",
-              timeout: 30000,
+              timeout: 15000,
             });
           }
           throw err;
@@ -733,7 +733,7 @@ export async function runContrastScan(
           continue;
         }
 
-        await page.waitForLoadState("networkidle", { timeout: 7000 }).catch(() => {
+        await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {
           // Some pages keep analytics or sockets open. DOM-ready is enough for contrast checks.
         });
 
@@ -750,7 +750,7 @@ export async function runContrastScan(
         await page.screenshot({
           path: path.join(screenshotRoot, fileName),
           fullPage: true,
-          timeout: 30000, // 30s max for full-page screenshot
+          timeout: 15000, // 15s max for full-page screenshot
         });
 
         // Collect all violation targets for batched section classification

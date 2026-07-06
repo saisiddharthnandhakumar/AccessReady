@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { after } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { normalizeUrl } from "@/lib/url";
@@ -6,6 +7,10 @@ import { getApplicableRegulations } from "@/lib/compliance";
 import type { ScanMetadataInput } from "@/lib/scan-metadata";
 
 export const runtime = "nodejs";
+// Response is sent immediately via after(), but the scan continues in the
+// background within the same invocation.  MaxDuration applies to the whole
+// invocation, so we keep 120s for the scan work.  The client gets its JSON
+// response in <200ms regardless.
 export const maxDuration = 120;
 
 const scanRequestSchema = z.object({
@@ -88,21 +93,21 @@ export async function POST(request: Request) {
     },
   });
 
-  // Run the scan synchronously — await it directly instead of using
-  // fire-and-forget or after(), which are unreliable on serverless.
+  // Run the scan in the background via after() so the client gets an
+  // immediate response. after() uses waitUntil on Vercel to keep the
+  // function alive for background work within the same invocation.
   // The scan function handles its own DB updates (completed / failed).
-  try {
-    const { runContrastScan } = await import("@/lib/scan");
-    await runContrastScan(parsed.data.url, {}, metadata, scan.id);
-  } catch (err) {
-    // runContrastScan already updates the DB row to "failed" in its own
-    // catch block. We log here for Vercel observability and return the
-    // scan ID so the client can see the failure reason on the detail page.
-    console.error(
-      "Scan failed:",
-      err instanceof Error ? err.message : err,
-    );
-  }
+  after(async () => {
+    try {
+      const { runContrastScan } = await import("@/lib/scan");
+      await runContrastScan(parsed.data.url, {}, metadata, scan.id);
+    } catch (err) {
+      console.error(
+        "Background scan failed:",
+        err instanceof Error ? err.message : err,
+      );
+    }
+  });
 
   return NextResponse.json({ id: scan.id });
 }

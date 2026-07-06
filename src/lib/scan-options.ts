@@ -9,5 +9,5 @@ export const SCROLL_SETTINGS = {
   /** Extra milliseconds to wait when new content is detected */
   LAZY_LOAD_WAIT_MS: 1500,
   /** Hard time limit in milliseconds to prevent infinite loops */
-  MAX_SCROLL_TIME_MS: 15000,
+  MAX_SCROLL_TIME_MS: 10000,
 } as const;
