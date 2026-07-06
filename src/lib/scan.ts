@@ -556,7 +556,7 @@ async function capturePageImages(
  * Called AFTER the scan is marked "completed" so slow API calls
  * don't block the core audit results from being saved.
  */
-async function runDeferredImageAnalysis(analysisId: string): Promise<void> {
+export async function runDeferredImageAnalysis(analysisId: string): Promise<void> {
   const record = await prisma.imageAnalysis.findUnique({
     where: { id: analysisId },
   });
@@ -884,16 +884,15 @@ export async function runContrastScan(
     });
 
     // Phase 2: Deferred image analysis — runs AFTER scan is marked complete.
-    // NVIDIA API calls are slow; they must not block the core audit results.
+    // NVIDIA API calls are slow (up to 30s each) and must NOT block the
+    // HTTP response. Fire-and-forget with its own error handling so the
+    // scan result is returned to the client immediately. If the process
+    // is killed before Phase 2 finishes, the images remain "pending" and
+    // can be analyzed later via POST /api/scans/[id]/analyze-images.
     if (allPendingImageIds.length > 0) {
-      // Limit total image analysis to 60s to avoid Vercel timeout.
-      const analysisPromise = Promise.all(
+      Promise.all(
         allPendingImageIds.map((id) => runDeferredImageAnalysis(id)),
-      );
-      await Promise.race([
-        analysisPromise,
-        new Promise<void>((resolve) => setTimeout(resolve, 60000)),
-      ]).catch((err) => {
+      ).catch((err) => {
         console.warn(
           "Deferred image analysis incomplete:",
           err instanceof Error ? err.message : err,

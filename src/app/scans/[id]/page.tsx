@@ -92,8 +92,27 @@ export default async function ScanDetail({
         </div>
       </div>
 
-      {/* ── Status Poller (refreshes page while scan is running) ── */}
+      {/* ── Status Poller (polls API while scan is running) ── */}
       <ScanStatusPoller scanId={scan.id} status={scan.status} />
+
+      {/* ── Stuck Scan Warning (server-side: running > 5 min with no progress) ── */}
+      {scan.status === "running" &&
+      Date.now() - new Date(scan.createdAt).getTime() > 300_000 ? (
+        <Card className="border-warning/30 bg-warning-muted">
+          <CardContent className="pt-5 space-y-2">
+            <p className="text-sm font-medium text-warning">
+              This scan started {Math.round((Date.now() - new Date(scan.createdAt).getTime()) / 60_000)} minutes ago and may have been interrupted.
+            </p>
+            <p className="text-sm text-foreground-secondary">
+              Vercel serverless functions have a time limit. If the target site is slow or blocks automated audits, the scan cannot complete.{" "}
+              <Link href="/" className="underline hover:text-foreground">
+                Start a new scan
+              </Link>
+              {" "}or try a different URL.
+            </p>
+          </CardContent>
+        </Card>
+      ) : null}
 
       {/* ── Error Card ── */}
       {scan.error ? (
