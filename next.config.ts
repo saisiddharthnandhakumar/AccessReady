@@ -14,7 +14,7 @@ const nextConfig: NextConfig = {
   // Tell the tracer to include it explicitly.
   outputFileTracingIncludes: {
     "/api/scans": ["./node_modules/playwright-core/browsers.json"],
-    "/api/scans/*/preview": ["./node_modules/playwright-core/browsers.json"],
+    "/api/scans/[id]/preview": ["./node_modules/playwright-core/browsers.json"],
   },
 
   // Allow large screenshot and image upload payloads through server actions.
