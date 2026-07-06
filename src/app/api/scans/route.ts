@@ -1,4 +1,4 @@
-import { NextResponse, after } from "next/server";
+import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { normalizeUrl } from "@/lib/url";
@@ -88,42 +88,21 @@ export async function POST(request: Request) {
     },
   });
 
-  // Use after() to keep the serverless function alive after the response
-  // is sent. On Vercel this maps to waitUntil(), which prevents the runtime
-  // from freezing the function before the background scan completes.
-  // Without this, fire-and-forget promises are unreliable on serverless.
-  after(async () => {
-    try {
-      const { runContrastScan } = await import("@/lib/scan");
-      await runContrastScan(parsed.data.url, {}, metadata, scan.id);
-    } catch (err) {
-      console.error(
-        "Background scan failed:",
-        err instanceof Error ? err.message : err,
-      );
-      // Ensure the DB row is marked as failed even if runContrastScan's
-      // own error handler didn't reach the DB (e.g. the import itself threw).
-      try {
-        const { prisma: db } = await import("@/lib/db");
-        await db.scan.update({
-          where: { id: scan.id },
-          data: {
-            status: "failed",
-            error:
-              err instanceof Error
-                ? err.message
-                : "Unexpected scan failure.",
-            finishedAt: new Date(),
-          },
-        });
-      } catch (dbErr) {
-        console.error(
-          "Failed to update scan status after error:",
-          dbErr instanceof Error ? dbErr.message : dbErr,
-        );
-      }
-    }
-  });
+  // Run the scan synchronously — await it directly instead of using
+  // fire-and-forget or after(), which are unreliable on serverless.
+  // The scan function handles its own DB updates (completed / failed).
+  try {
+    const { runContrastScan } = await import("@/lib/scan");
+    await runContrastScan(parsed.data.url, {}, metadata, scan.id);
+  } catch (err) {
+    // runContrastScan already updates the DB row to "failed" in its own
+    // catch block. We log here for Vercel observability and return the
+    // scan ID so the client can see the failure reason on the detail page.
+    console.error(
+      "Scan failed:",
+      err instanceof Error ? err.message : err,
+    );
+  }
 
   return NextResponse.json({ id: scan.id });
 }
