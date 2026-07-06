@@ -639,7 +639,10 @@ export async function runContrastScan(
     );
   }
 
-  const browser = await chromium.connect({ wsEndpoint: remoteEndpoint });
+  const browser = await chromium.connect({
+    wsEndpoint: remoteEndpoint,
+    timeout: 30000, // 30s to establish the WebSocket connection
+  });
   const context = await browser.newContext({
     viewport: { width: 1366, height: 900 },
     userAgent:
@@ -705,6 +708,7 @@ export async function runContrastScan(
         await page.screenshot({
           path: path.join(screenshotRoot, fileName),
           fullPage: true,
+          timeout: 30000, // 30s max for full-page screenshot
         });
 
         // Collect all violation targets for batched section classification

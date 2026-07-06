@@ -6,7 +6,7 @@ import { getApplicableRegulations } from "@/lib/compliance";
 import type { ScanMetadataInput } from "@/lib/scan-metadata";
 
 export const runtime = "nodejs";
-export const maxDuration = 300;
+export const maxDuration = 120;
 
 const scanRequestSchema = z.object({
   url: z
