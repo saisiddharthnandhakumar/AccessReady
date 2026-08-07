@@ -671,21 +671,19 @@ export async function runContrastScan(
       ? `wss://chrome.browserless.io?token=${apiKey}`
       : null);
 
-  if (!remoteEndpoint) {
-    // In serverless environments (Vercel, AWS Lambda, etc.) there is no
-    // Chromium installed — a remote browser service is required.
-    throw new Error(
-      "No remote browser configured. Set BROWSERLESS_API_KEY or " +
-      "BROWSERLESS_WS_ENDPOINT in your environment variables. " +
-      "Sign up for a free Browserless account at https://browserless.io " +
-      "(1,000 sessions/month free).",
-    );
+  let browser;
+  if (remoteEndpoint) {
+    browser = await chromium.connect({
+      wsEndpoint: remoteEndpoint,
+      timeout: 15000, // 15s to establish the WebSocket connection
+    });
+  } else {
+    // Fall back to local Chromium for development (no Browserless account needed).
+    browser = await chromium.launch({
+      headless: true,
+      timeout: 15000,
+    });
   }
-
-  const browser = await chromium.connect({
-    wsEndpoint: remoteEndpoint,
-    timeout: 15000, // 15s to establish the WebSocket connection
-  });
   const context = await browser.newContext({
     viewport: { width: 1366, height: 900 },
     userAgent:

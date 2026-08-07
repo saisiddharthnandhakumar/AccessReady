@@ -44,7 +44,7 @@ function readDatabaseUrl() {
     }
   }
 
-  return process.env.DATABASE_URL ?? "file:C:/tmp/accessready-dev.db";
+  return process.env.DATABASE_URL ?? "file:./prisma/accessready-dev.db";
 }
 
 function sqlitePathFromUrl(databaseUrl) {
@@ -122,9 +122,26 @@ CREATE TABLE IF NOT EXISTS "Violation" (
   CONSTRAINT "Violation_pageId_fkey" FOREIGN KEY ("pageId") REFERENCES "PageResult" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS "ImageAnalysis" (
+  "id" TEXT NOT NULL PRIMARY KEY,
+  "pageId" TEXT NOT NULL,
+  "imageUrl" TEXT NOT NULL,
+  "imageType" TEXT NOT NULL DEFAULT 'img',
+  "altText" TEXT,
+  "mimeType" TEXT,
+  "storedPath" TEXT,
+  "status" TEXT NOT NULL DEFAULT 'completed',
+  "error" TEXT,
+  "resultJson" TEXT,
+  "rawResponse" TEXT,
+  "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT "ImageAnalysis_pageId_fkey" FOREIGN KEY ("pageId") REFERENCES "PageResult" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+);
+
 CREATE INDEX IF NOT EXISTS "Scan_createdAt_idx" ON "Scan"("createdAt");
 CREATE INDEX IF NOT EXISTS "PageResult_scanId_idx" ON "PageResult"("scanId");
 CREATE INDEX IF NOT EXISTS "Violation_pageId_idx" ON "Violation"("pageId");
+CREATE INDEX IF NOT EXISTS "ImageAnalysis_pageId_idx" ON "ImageAnalysis"("pageId");
 `);
 
 const violationColumns = db

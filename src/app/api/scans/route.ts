@@ -36,27 +36,6 @@ export async function POST(request: Request) {
     );
   }
 
-  // Validate browser configuration early so we can fail fast.
-  const browserWs = process.env.BROWSERLESS_WS_ENDPOINT;
-  const browserKey = process.env.BROWSERLESS_API_KEY;
-  const remoteEndpoint =
-    (browserWs && browserWs.startsWith("wss://") ? browserWs : null) ??
-    (browserKey && browserKey !== "undefined"
-      ? `wss://chrome.browserless.io?token=${browserKey}`
-      : null);
-
-  if (!remoteEndpoint) {
-    return NextResponse.json(
-      {
-        error:
-          "No remote browser configured. Set BROWSERLESS_API_KEY or " +
-          "BROWSERLESS_WS_ENDPOINT in Vercel environment variables. " +
-          "Sign up at https://browserless.io (free tier available).",
-      },
-      { status: 500 },
-    );
-  }
-
   const normalizedUrl = normalizeUrl(parsed.data.url);
   const metadata: ScanMetadataInput = {
     productType: parsed.data.productType,

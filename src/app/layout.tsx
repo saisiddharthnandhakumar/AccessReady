@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Fira_Code, Fira_Sans } from "next/font/google";
 import "./globals.css";
 import { Header } from "@/components/header";
+import { ThemeInit } from "@/components/theme-init";
 
 const firaCode = Fira_Code({
   variable: "--font-fira-code",
@@ -30,22 +31,9 @@ export default function RootLayout({
     <html
       lang="en"
       className={`${firaCode.variable} ${firaSans.variable} h-full antialiased`}
-      suppressHydrationWarning
     >
       <head>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              (function() {
-                try {
-                  var stored = localStorage.getItem('accessready-theme');
-                  var theme = stored || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-                  if (theme === 'dark') document.documentElement.classList.add('dark');
-                } catch (_) {}
-              })();
-            `,
-          }}
-        />
+        <ThemeInit />
       </head>
       <body className="min-h-full flex flex-col bg-surface text-foreground font-sans">
         <Header />

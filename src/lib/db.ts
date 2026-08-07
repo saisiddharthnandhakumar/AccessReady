@@ -63,7 +63,7 @@ function createClient(): PrismaClient {
   // Set DATABASE_URL in process.env directly because the generated Prisma
   // client reads from the environment and throws LibsqlError on undefined.
   if (!process.env.DATABASE_URL) {
-    process.env.DATABASE_URL = "file:./accessready-dev.db";
+    process.env.DATABASE_URL = "file:./prisma/accessready-dev.db";
   }
   return new PrismaClient();
 }

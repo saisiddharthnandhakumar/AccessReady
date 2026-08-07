@@ -10,7 +10,9 @@
     "test": "prisma generate && node --no-warnings scripts/setup-db.mjs && vitest run",
     "db:generate": "prisma generate",
     "db:setup": "node --no-warnings scripts/setup-db.mjs",
-    "postinstall": "prisma generate && node --no-warnings scripts/setup-db.mjs && node --no-warnings scripts/patch-playwright.mjs"
+    "postinstall": "prisma generate && node --no-warnings scripts/setup-db.mjs && node --no-warnings scripts/patch-playwright.mjs",
+    "setup": "npx playwright install chromium",
+    "dev:ngrok": "npm run build && npm start & sleep 3 && ngrok http 3000"
   },
   "dependencies": {
     "@libsql/client": "^0.15.0",
@@ -39,6 +41,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.7",
     "jsdom": "^29.1.1",
+    "playwright": "^1.60.0",
     "prisma": "^6.19.3",
     "tailwindcss": "^4",
     "typescript": "^5",
